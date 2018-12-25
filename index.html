@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+    <style>
+    html, body {
+        width:  100%;
+        height: 100%;
+        margin: 0px;
+        overflow:hidden;
+    }
+    .container {
+        pointer-events: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+    .eye {
+        position: relative;
+        display: inline-block;
+        border-radius: 50%;
+        height: 50px;
+        width: 50px;
+        background: #CCC;
+    }
+    .eye:after { /*pupil*/
+        position: absolute;
+        bottom: 30px;
+        right: 15px;
+        width: 15px;
+        height: 15px;
+        background: #000;
+        border-radius: 50%;
+        content: " ";
+    }
+    .footer {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+    }
+    </style>
+    <script type="text/javascript">
+    var canvas, ctx, drawing = false;
+
+    var color = 'blue';
+    
+    var eyes;
+    
+    var context, trace;
+    
+    function resizecanvas() {
+        ctx.canvas.width  = window.innerWidth;
+        ctx.canvas.height = window.innerHeight;
+    }
+    
+    function Trace(posX, posY, identifier) {
+        this.posX = posX;
+        this.posY = posY;
+        this.identifier = identifier;
+        this.timestamp = new Date();
+        
+        this.sin_osc = context.createOscillator();
+        this.sin_osc.type = 'sine';
+        this.sin_osc.frequency.value = 0;
+        this.sin_osc.connect(context.destination);
+        this.sin_osc.start();
+        
+        this.drawStart();
+    }
+    
+    Trace.prototype.move = function (posX, posY) {
+        var deltaX = this.posX - posX,
+            deltaY = this.posY - posY;
+        var delta = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        var timestamp = new Date();
+        var speed = delta / (timestamp - this.timestamp);
+        
+        this.sin_osc.frequency.value = speed * 1000;
+        
+        this.drawMove(posX, posY);
+        
+        this.posX = posX;
+        this.posY = posY;
+        this.timestamp = timestamp;
+    };
+    
+    Trace.prototype.end = function (posX, posY) {
+        this.sin_osc.stop();
+        
+        this.drawEnd(posX, posY);
+        
+        this.posX = posX;
+        this.posY = posY;
+    };
+    
+    Trace.prototype.drawStart = function () {
+        ctx.beginPath();
+        ctx.arc(this.posX, this.posY, 4, 0, 2 * Math.PI, false);
+        ctx.fillStyle = color;
+        ctx.fill();
+    };
+    
+    Trace.prototype.drawMove = function (newX, newY) {
+        ctx.beginPath();
+        ctx.moveTo(this.posX, this.posY);
+        ctx.lineTo(newX, newY);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = color;
+        ctx.stroke();
+    };
+
+    Trace.prototype.drawEnd = function (newX, newY) {
+        ctx.lineWidth = 4;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(this.posX, this.posY);
+        ctx.lineTo(newX, newY);
+        ctx.fillRect(newX - 4, newY - 4, 8, 8);
+    };
+    
+    function init() {
+        canvas = document.getElementById('can');
+        ctx = canvas.getContext('2d');
+        
+        ctx.canvas.width  = window.innerWidth;
+        ctx.canvas.height = window.innerHeight;
+        
+        canvas.addEventListener('mousemove', mousexy, false);
+        canvas.addEventListener('mousedown', mousexy, false);
+        canvas.addEventListener('mouseup', mousexy, false);
+        canvas.addEventListener('mouseout', mousexy, false);
+        
+        canvas.addEventListener('touchmove', touchxy, false);
+        canvas.addEventListener('touchstart', touchxy, false);
+        canvas.addEventListener('touchend', touchxy, false);
+        canvas.addEventListener('touchcancel', touchxy, false);
+        
+        eyes = document.getElementsByClassName('eye');
+        
+        context = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    function pointeyes(traces) {
+        if (!traces.length) {
+            return;
+        }
+        for (var i = 0; i < eyes.length; i++) {
+            var eye = eyes[i];
+            var rect = eye.getBoundingClientRect();
+            var x = rect.x + rect.width / 2;
+            var y = rect.y + rect.height / 2;
+            var pageX = traces[i % traces.length].posX || traces[i % traces.length].pageX,
+                pageY = traces[i % traces.length].posY || traces[i % traces.length].pageY;
+            var rad = Math.atan2(pageX - x, pageY - y);
+            eye.style.transform = 'rotate(' + (Math.PI - rad) + 'rad)';
+        }
+    }
+    
+    function mousexy(evt) {
+        evt.preventDefault();
+        
+        var currX = evt.clientX - canvas.offsetLeft,
+            currY = evt.clientY - canvas.offsetTop;
+        
+        if (evt.type == 'mousedown') {
+            drawing = true;
+            trace = new Trace(currX, currY);
+        }
+        if (trace && evt.type == 'mousemove') {
+            trace.move(currX, currY);
+        }
+        if (trace && (evt.type == 'mouseup' || evt.type == 'mouseout')) {
+            trace.end(currX, currY);
+            trace = null;
+            drawing = false;
+        }
+        
+        pointeyes([evt]);
+    }
+    
+    var traces = [];
+    
+    function traceIndexById(idToFind) {
+        for (var i = 0; i < traces.length; i++) {
+            var id = traces[i].identifier;
+
+            if (id == idToFind) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function touchxy(evt) {
+        evt.preventDefault();
+        
+        var touches = evt.changedTouches;
+        for (var i = 0; i < touches.length; i++) {
+            if (evt.type == 'touchstart') {
+                traces.push(new Trace(touches[i].pageX, touches[i].pageY, touches[i].identifier));
+                continue;
+            }
+            
+            var idx = traceIndexById(touches[i].identifier);
+            if (idx < 0) {
+                continue;
+            }
+            
+            if (evt.type == 'touchmove') {
+                traces[idx].move(touches[i].pageX, touches[i].pageY);
+            }
+            if (evt.type == 'touchend' || evt.type == 'touchcancel') {
+                traces[idx].end(touches[i].pageX, touches[i].pageY);
+                traces.splice(idx, 1);
+            }
+        }
+        pointeyes(traces);
+    }
+    
+    </script>
+    <body onload="init()" onresize="resizecanvas()">
+        <div class="container">
+            <div class="eye"></div>
+            <div class="eye"></div>
+        </div>
+        <canvas id="can"></canvas>
+        <div class="footer">
+            <a href="https://github.com/sparber">github.com/sparber</a>
+        </div>
+    </body>
+</html>
