@@ -40,18 +40,13 @@
     }
     </style>
     <script type="text/javascript">
-    var canvas, ctx, drawing = false;
+    var canvas, ctx;
 
     var color = 'blue';
     
     var eyes;
     
     var context, trace;
-    
-    function resizecanvas() {
-        ctx.canvas.width  = window.innerWidth;
-        ctx.canvas.height = window.innerHeight;
-    }
     
     function Trace(posX, posY, identifier) {
         this.posX = posX;
@@ -65,7 +60,7 @@
         this.sin_osc.connect(context.destination);
         this.sin_osc.start();
         
-        this.drawStart();
+        this.$drawStart();
     }
     
     Trace.prototype.move = function (posX, posY) {
@@ -77,7 +72,7 @@
         
         this.sin_osc.frequency.value = speed * 1000;
         
-        this.drawMove(posX, posY);
+        this.$drawMove(posX, posY);
         
         this.posX = posX;
         this.posY = posY;
@@ -87,20 +82,20 @@
     Trace.prototype.end = function (posX, posY) {
         this.sin_osc.stop();
         
-        this.drawEnd(posX, posY);
+        this.$drawEnd(posX, posY);
         
         this.posX = posX;
         this.posY = posY;
     };
     
-    Trace.prototype.drawStart = function () {
+    Trace.prototype.$drawStart = function () {
         ctx.beginPath();
         ctx.arc(this.posX, this.posY, 4, 0, 2 * Math.PI, false);
         ctx.fillStyle = color;
         ctx.fill();
     };
     
-    Trace.prototype.drawMove = function (newX, newY) {
+    Trace.prototype.$drawMove = function (newX, newY) {
         ctx.beginPath();
         ctx.moveTo(this.posX, this.posY);
         ctx.lineTo(newX, newY);
@@ -109,7 +104,7 @@
         ctx.stroke();
     };
 
-    Trace.prototype.drawEnd = function (newX, newY) {
+    Trace.prototype.$drawEnd = function (newX, newY) {
         ctx.lineWidth = 4;
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -118,29 +113,33 @@
         ctx.fillRect(newX - 4, newY - 4, 8, 8);
     };
     
+    function resizeCanvas() {
+        ctx.canvas.width  = window.innerWidth;
+        ctx.canvas.height = window.innerHeight;
+    }
+    
     function init() {
         canvas = document.getElementById('can');
         ctx = canvas.getContext('2d');
         
-        ctx.canvas.width  = window.innerWidth;
-        ctx.canvas.height = window.innerHeight;
+        resizeCanvas();
         
-        canvas.addEventListener('mousemove', mousexy, false);
-        canvas.addEventListener('mousedown', mousexy, false);
-        canvas.addEventListener('mouseup', mousexy, false);
-        canvas.addEventListener('mouseout', mousexy, false);
+        canvas.addEventListener('mousemove', mouseXY, false);
+        canvas.addEventListener('mousedown', mouseXY, false);
+        canvas.addEventListener('mouseup', mouseXY, false);
+        canvas.addEventListener('mouseout', mouseXY, false);
         
-        canvas.addEventListener('touchmove', touchxy, false);
-        canvas.addEventListener('touchstart', touchxy, false);
-        canvas.addEventListener('touchend', touchxy, false);
-        canvas.addEventListener('touchcancel', touchxy, false);
+        canvas.addEventListener('touchmove', touchXY, false);
+        canvas.addEventListener('touchstart', touchXY, false);
+        canvas.addEventListener('touchend', touchXY, false);
+        canvas.addEventListener('touchcancel', touchXY, false);
         
         eyes = document.getElementsByClassName('eye');
         
         context = new (window.AudioContext || window.webkitAudioContext)();
     }
     
-    function pointeyes(traces) {
+    function pointEyes(traces) {
         if (!traces.length) {
             return;
         }
@@ -156,7 +155,7 @@
         }
     }
     
-    function mousexy(evt) {
+    function mouseXY(evt) {
         evt.preventDefault();
         
         var currX = evt.clientX - canvas.offsetLeft,
@@ -175,7 +174,7 @@
             drawing = false;
         }
         
-        pointeyes([evt]);
+        pointEyes([evt]);
     }
     
     var traces = [];
@@ -191,7 +190,7 @@
         return -1;
     }
 
-    function touchxy(evt) {
+    function touchXY(evt) {
         evt.preventDefault();
         
         var touches = evt.changedTouches;
@@ -214,7 +213,7 @@
                 traces.splice(idx, 1);
             }
         }
-        pointeyes(traces);
+        pointEyes(traces);
     }
     
     </script>
